@@ -5,6 +5,7 @@
 
 //#define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
 #define GRAVITATIONAL_CONSTANT 240300.0 // km^3 / (Yg * min^2)
+#define TIME_STEP 60e20 //
 // http://www.wolframalpha.com/input/?i=gravitational+constant+in+km%5E3%2F%28Yg+*+s%5E2%29
 
 __constant__ double G;
@@ -49,29 +50,47 @@ __global__ void dot(int *a, int *b, int *c) {
 }
 
 __global__ void update_positions(double *x, double *y, double *vx, double *vy) {
-        x[blockIdx.x] += vx[blockIdx.x] * 1.0;
-        y[blockIdx.x] += vy[blockIdx.x] * 1.0;
+        x[blockIdx.x] += vx[blockIdx.x] * TIME_STEP;
+        y[blockIdx.x] += vy[blockIdx.x] * TIME_STEP;
+        //if(12 == blockIdx.x)
+        //printf("%g, %g, %d\n", vx[blockIdx.x] * TIME_STEP, vx[blockIdx.x], blockIdx.x);
+        vx[blockIdx.x] = 0.0;
+        vy[blockIdx.x] = 0.0;
 }
 
 __global__ void gravity(double *x, double *y, double *m, double *vx, double *vy) {
-        __shared__ double accel_parts[THREADS_PER_BLOCK];
-        //int index = threadIdx.x + blockIdx.x * blockDim.x;
+        __shared__ double d_vx[THREADS_PER_BLOCK];
+        __shared__ double d_vy[THREADS_PER_BLOCK];
+        // Initialize this thread's values to 0
+        d_vx[threadIdx.x] = 0.0;
+        d_vy[threadIdx.x] = 0.0;
 
-        double d_x, d_y, dist_sq;
+        double d_x, d_y, accel_part, dist_sq;
 
         if(blockIdx.x != threadIdx.x) {
                 d_x = x[blockIdx.x] - x[threadIdx.x];
                 d_y = y[blockIdx.x] - y[threadIdx.x];
 
                 dist_sq = d_x * d_x + d_y * d_y; 
-                
-                if(dist_sq > 10) {
-                        accel_parts[threadIdx.x] = 66.7 * m[threadIdx.x] / dist_sq;
+                accel_part = GRAVITATIONAL_CONSTANT * m[threadIdx.x] / dist_sq;
+                if(dist_sq < 40000.0 || isnan(accel_part) || isinf(accel_part)) {
+                        d_vx[threadIdx.x] = 0.0;
+                        d_vy[threadIdx.x] = 0.0;
                 } else {
-                        accel_parts[threadIdx.x] = 0.0;
+                        double dist = sqrt(dist_sq);
+                        //if(accel_part > 1e-17)
+                        //printf("%g, %g\n", accel_part * (d_x / dist), dist);
+                        if(isnan(accel_part) || isnan(dist)) {
+                                d_vx[threadIdx.x] = 0.0;
+                                d_vy[threadIdx.x] = 0.0;
+                        } else {
+                                d_vx[threadIdx.x] = - accel_part * (d_x / dist);
+                                d_vy[threadIdx.x] = - accel_part * (d_y / dist);
+                        }
                 }
         } else {
-                accel_parts[threadIdx.x] = 0.0;
+                d_vx[threadIdx.x] = 0.0;
+                d_vy[threadIdx.x] = 0.0;
         }
 
         /*
@@ -83,13 +102,13 @@ __global__ void gravity(double *x, double *y, double *m, double *vx, double *vy)
         __syncthreads();
 
         if(0 == threadIdx.x) {
-                double sum = 0.0;
 
                 for(int i = 0; i < blockDim.x; i++) {
-                        sum += accel_parts[i];
+                        if(i != blockIdx.x && !isnan(d_vx[i]) && !isnan(d_vy[i])) {
+                                vx[blockIdx.x] += d_vx[i];
+                                vy[blockIdx.x] += d_vy[i];
+                        }
                 }
-                vx[blockIdx.x] = sum * (d_x / sqrt(dist_sq));
-                vy[blockIdx.x] = sum * (d_y / sqrt(dist_sq));
         }
 }
 
@@ -117,21 +136,27 @@ int main(void) {
         vx = (double*)malloc(size);
         vy = (double*)malloc(size);
 
+        memset(vx, 0, size);
+        memset(vy, 0, size);
+        
+
         int seed = time(NULL);
         srand(seed);
 
-        random_doubles(x, N, 5e4);
-        random_doubles(y, N, 5e4);
+        random_doubles(x, N, 5e10);
+        random_doubles(y, N, 5e10);
         random_doubles(m, N, 0.5);
 
         cudaMemcpy(dev_x, x, size, cudaMemcpyHostToDevice);
         cudaMemcpy(dev_y, y, size, cudaMemcpyHostToDevice);
         cudaMemcpy(dev_m, m, size, cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_vx, vx, size, cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_vy, vy, size, cudaMemcpyHostToDevice);
 
         FILE *fp = fopen("locations.csv", "w");
 
 
-        for(int i = 0; i < 100; i++) {
+        for(int i = 0; i < 1000; i++) {
                 update_positions<<<N, 1>>>(dev_x, dev_y, dev_vx, dev_vy);
                 gravity<<<N, THREADS_PER_BLOCK>>>(dev_x, dev_y, dev_m, dev_vx, dev_vy);
 

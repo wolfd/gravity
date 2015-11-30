@@ -17,7 +17,7 @@ color = pygame.Color.g
 
 clock = pygame.time.Clock()
 
-locations = pd.read_csv('locations2.csv')
+locations = pd.read_csv('locations.csv')
 #import pdb; pdb.set_trace()
 
 x = locations.ix[:,2]
@@ -25,11 +25,11 @@ y = locations.ix[:,3]
 xv = locations.ix[:,4]
 yv = locations.ix[:,5]
 
-scale = 100.0
+scale = 10e7
 
 while True:
     clock.tick(10)
-    for t in range(100):
+    for t in range(1000):
         print 'tick'
         screen.fill(BLACK)
         for l in range(512):
@@ -39,7 +39,7 @@ while True:
 	#gfxdraw.pixel(surface, l.x, l.y, color)
    
         pygame.display.update() 
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                 pygame.quit(); sys.exit();
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-             pygame.quit(); sys.exit();
