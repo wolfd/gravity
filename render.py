@@ -25,17 +25,22 @@ y = locations.ix[:,3]
 xv = locations.ix[:,4]
 yv = locations.ix[:,5]
 
-scale = 10e7
+scale = 10e3
+size = [0, 0]
+def to_pygame(x, y):
+    return (size[0] / 2 + x / scale, size[1] / 2 + y / scale)
 
 while True:
-    clock.tick(10)
-    for t in range(1000):
-        print 'tick'
+    #clock.tick(10)
+    for t in [u for u in xrange(30000) if u % 50 == 0]:
+        print str(t) 
         screen.fill(BLACK)
         for l in range(512):
-            i = t + l
+            i = t * 512 + l
             #print (x[i]/scale,y[i]/scale)
-            pygame.draw.line(screen, GREEN, [x[i]/scale, y[i]/scale], [x[i]/scale + xv[i], y[i]/scale + yv[i]], 1)
+            p = to_pygame(x[i], y[i])
+            p_v = to_pygame(x[i] + xv[i], y[i] + yv[i])
+            pygame.draw.line(screen, GREEN, p, p_v, 1)
 	#gfxdraw.pixel(surface, l.x, l.y, color)
    
         pygame.display.update() 
