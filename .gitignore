@@ -1,5 +1,5 @@
 *.csv
-bin/
+bin/grav
 
 # Byte-compiled / optimized / DLL files
 

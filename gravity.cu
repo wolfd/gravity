@@ -1,22 +1,23 @@
 #include <stdio.h>
 
-#define N 512 
+// There are ways to get this data but I'm too lazy
+#define CUDA_CORES 384
+
+#define N 384 
+//#define N 512 
 #define THREADS_PER_BLOCK 512 
 
-#define ITERATIONS 300
+#define ITERATIONS 8000 
 
-//#define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
+//define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
 #define GRAVITATIONAL_CONSTANT 240300.0 // km^3 / (Yg * min^2)
-#define TIME_STEP 60.0 //
+#define TIME_STEP 1.0 //
 // http://www.wolframalpha.com/input/?i=gravitational+constant+in+km%5E3%2F%28Yg+*+s%5E2%29
-
-__constant__ double G;
 
 void random_ints(int* a, int num) {
         int i;
         for(i = 0; i < num; ++i) {
                 a[i] = rand();
-        //        a[i] = 1;
         }
 } 
 
@@ -27,170 +28,159 @@ void random_doubles(double* a, int num, double multiplier) {
         }
 }
 
-__global__ void add(int *a, int *b, int *c) {
-        int index = threadIdx.x + blockIdx.x * blockDim.x;
-        c[index] = a[index] + b[index];
-        //*c = *a + *b;
+void random_double4s(double4* a, int num, double m0, double m1, double m2, double m3) {
+        int i;
+        for(i = 0; i < num; i++) {
+                a[i].x = (double)rand() / (double)RAND_MAX * m0;
+                a[i].y = (double)rand() / (double)RAND_MAX * m1;
+                a[i].z = (double)rand() / (double)RAND_MAX * m2;
+                a[i].w = (double)rand() / (double)RAND_MAX * m3;
+        }
 }
 
-__global__ void dot(int *a, int *b, int *c) {
-        __shared__ int temp[THREADS_PER_BLOCK];
+__device__ double3 interaction(double4 body_a, double4 body_b, double3 accel) {
+        double3 r;
+        r.x = body_b.x - body_a.x;
+        r.y = body_b.y - body_a.y;
+        r.z = body_b.z - body_a.z;
+ 
+        double dist_sq = r.x * r.x + r.y * r.y + r.z * r.z;
+ 
+        dist_sq += 1.0; // softening factor
+ 
+        double inv_dist = rsqrt(dist_sq);
+        double inv_dist_cube = inv_dist * inv_dist * inv_dist;
+ 
+        double accel_total = GRAVITATIONAL_CONSTANT * body_b.w * inv_dist_cube;
+ 
+        accel.x += r.x * accel_total;
+        accel.y += r.y * accel_total;
+        accel.z += r.z * accel_total;
+        
+        return accel;
+}
 
-        int index = threadIdx.x + blockIdx.x * blockDim.x;
+__device__ double3 tile_calculation(double4 body_a, double3 accel) {
+        int i;
+        extern __shared__ double4 shared_positions[];
+        //__shared__ double4 shared_positions[N];
+        //double4 *shared_positions = SharedMemory();
 
-        temp[threadIdx.x] = a[index] * b[index];
+
+//#pragma unroll 128
+        for(i = 0; i < blockDim.x; i++) {
+                accel = interaction(body_a, shared_positions[i], accel);
+        }
+
+        return accel;
+}
+
+__device__ double4 calculate_accel(double4 *positions, int num_tiles) {
+        extern __shared__ double4 shared_positions[];
+
+        double4 cur_body; // current block's body
+
+        int tile;
+
+        double3 accel = {0.0, 0.0, 0.0};
+
+        int gtid = blockIdx.x * blockDim.x + threadIdx.x;
+
+
+        cur_body = positions[gtid];
+
+        for(tile = 0; tile < num_tiles; tile++) {
+                int idx = tile * blockDim.x + threadIdx.x;
+                shared_positions[threadIdx.x] = positions[idx];
+                __syncthreads();
+//#pragma unroll 128
+                for(int counter = 0; counter < blockDim.x; counter++) {
+                        accel = interaction(cur_body, shared_positions[counter], accel);
+                }
+                __syncthreads();
+        }
+        
+
+        double4 accel4 = {accel.x, accel.y, accel.z, 0.0};
+        return accel4;
+}
+
+__global__ void integrate(double4 *positions, double4 *vels, int num_tiles) {
+        int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+        if(index >= N) {
+                return;
+        }
+
+        double4 position = positions[index];
+
+        //printf("what: %g, %g, %g, %g\n", position.x, position.y, position.z, position.w); 
+
+        double4 accel = calculate_accel(positions, num_tiles);
+        
+        double4 velocity = vels[index]; 
+
+        velocity.x += accel.x * TIME_STEP;
+        velocity.y += accel.y * TIME_STEP;
+        velocity.z += accel.z * TIME_STEP;
+
+        position.x += velocity.x * TIME_STEP;
+        position.y += velocity.y * TIME_STEP;
+        position.z += velocity.z * TIME_STEP;
 
         __syncthreads();
 
-        if(0 == threadIdx.x) {
-                int sum = 0;
-                for(int i = 0; i < THREADS_PER_BLOCK; i++) {
-                        sum += temp[i];
-                }
-                atomicAdd(c, sum);
-        }
-}
-
-__global__ void update_positions(double *x, double *y, double *vx, double *vy) {
-        x[blockIdx.x] += vx[blockIdx.x] * TIME_STEP;
-        y[blockIdx.x] += vy[blockIdx.x] * TIME_STEP;
-        //if(12 == blockIdx.x)
-        //printf("%g, %g, %d\n", vx[blockIdx.x] * TIME_STEP, vx[blockIdx.x], blockIdx.x);
-        //vx[blockIdx.x] = 0.0;
-        //vy[blockIdx.x] = 0.0;
-}
-
-__global__ void gravity(double *x, double *y, double *m, double *vx, double *vy) {
-        __shared__ double ax[THREADS_PER_BLOCK];
-        __shared__ double ay[THREADS_PER_BLOCK];
-        // Initialize this thread's values to 0
-        ax[threadIdx.x] = 0.0;
-        ay[threadIdx.x] = 0.0;
-
-        double d_x, d_y, accel_part, dist_sq;
-
-        if(blockIdx.x != threadIdx.x) {
-                d_x = x[blockIdx.x] - x[threadIdx.x];
-                d_y = y[blockIdx.x] - y[threadIdx.x];
-
-                dist_sq = d_x * d_x + d_y * d_y; 
-                accel_part = GRAVITATIONAL_CONSTANT * m[threadIdx.x] / dist_sq;
-                if(isnan(accel_part) || isinf(accel_part)) {
-                        ax[threadIdx.x] = 0.0;
-                        ay[threadIdx.x] = 0.0;
-                } else {
-                        double dist = sqrt(dist_sq);
-                        //if(accel_part > 1e-17)
-                        //printf("%g, %g\n", accel_part * (d_x / dist), dist);
-                        if(dist_sq < 1000 || isnan(accel_part) || isnan(dist)) {
-                                ax[threadIdx.x] = 0.0;
-                                ay[threadIdx.x] = 0.0;
-                        } else {
-                                ax[threadIdx.x] = - accel_part * (d_x / dist);
-                                ay[threadIdx.x] = - accel_part * (d_y / dist);
-                        }
-                }
-        } else {
-                ax[threadIdx.x] = 0.0;
-                ay[threadIdx.x] = 0.0;
-        }
-
-        /*
-           G * M * m
-             -----
-            dist^2
-        */
-
-        __syncthreads();
-
-        if(0 == threadIdx.x) {
-
-                for(int i = 0; i < blockDim.x; i++) {
-                        if(i != blockIdx.x && !isnan(ax[i]) && !isnan(ay[i])) {
-                                vx[blockIdx.x] += ax[i];
-                                vy[blockIdx.x] += ay[i];
-                        }
-                }
-        }
+        positions[index] = position;
+        vels[index] = velocity;
 }
 
 int main(void) {
-        double *x, *y, *m, *vx, *vy;
-        double *dev_x, *dev_y, *dev_m, *dev_vx, *dev_vy;
-        int size = N * sizeof(double);
+        int block_size = N;
 
-        /*cudaMemcpyToSymbol(G,
-                        GRAVITATIONAL_CONSTANT,
-                        sizeof(double),
-                        0,
-                        cudaMemcpyHostToDevice);
-        */
+        int num_blocks = (N + block_size-1) / block_size;
+        int num_tiles = (N + block_size - 1) / block_size;
+        int shared_mem_size = block_size * 4 * sizeof(double); // 4 floats for pos
 
-        cudaMalloc((void**)&dev_x, size);
-        cudaMalloc((void**)&dev_y, size);
-        cudaMalloc((void**)&dev_m, size);
-        cudaMalloc((void**)&dev_vx, size);
-        cudaMalloc((void**)&dev_vy, size);
+        double4 *positions, *vels;
+        double4 *dev_positions, *dev_vels;
 
-        x = (double*)malloc(size);
-        y = (double*)malloc(size);
-        m = (double*)malloc(size);
-        vx = (double*)malloc(size);
-        vy = (double*)malloc(size);
-
-        //memset(vx, 0, size);
-        //memset(vy, 0, size);
+        int size = N * sizeof(double4);
         
+        cudaMalloc((void**)&dev_positions, size);
+        cudaMalloc((void**)&dev_vels, size);
+         
+        positions = (double4*)malloc(size);
+        vels = (double4*)malloc(size);
 
         int seed = time(NULL);
         srand(seed);
+        random_double4s(positions, N, 6e5, 6e5, 6e5, 11.6 * 2.0);
+        random_double4s(vels, N, 0.0, 0.0, 0.0, 0.0);
 
-        random_doubles(x, N, 6e5);
-        random_doubles(y, N, 6e5);
-        random_doubles(m, N, 11.6 * 2.0);
-        random_doubles(vx, N, 0.0);
-        random_doubles(vy, N, 0.0);
+        cudaMemcpy(dev_positions, positions, size, cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_vels, vels, size, cudaMemcpyHostToDevice);
 
-        cudaMemcpy(dev_x, x, size, cudaMemcpyHostToDevice);
-        cudaMemcpy(dev_y, y, size, cudaMemcpyHostToDevice);
-        cudaMemcpy(dev_m, m, size, cudaMemcpyHostToDevice);
-        cudaMemcpy(dev_vx, vx, size, cudaMemcpyHostToDevice);
-        cudaMemcpy(dev_vy, vy, size, cudaMemcpyHostToDevice);
 
         FILE *fp = fopen("locations.csv", "w");
 
-
         for(int i = 0; i < ITERATIONS; i++) {
-                update_positions<<<N, 1>>>(dev_x, dev_y, dev_vx, dev_vy);
-                gravity<<<N, THREADS_PER_BLOCK>>>(dev_x, dev_y, dev_m, dev_vx, dev_vy);
+                integrate<<<num_blocks, block_size, shared_mem_size>>>(dev_positions, dev_vels, num_tiles);
 
-                cudaMemcpy(x, dev_x, size, cudaMemcpyDeviceToHost);
-                cudaMemcpy(y, dev_y, size, cudaMemcpyDeviceToHost);
-                cudaMemcpy(vx, dev_vx, size, cudaMemcpyDeviceToHost);
-                cudaMemcpy(vy, dev_vy, size, cudaMemcpyDeviceToHost);
+                cudaMemcpy(positions, dev_positions, size, cudaMemcpyDeviceToHost);
+                cudaMemcpy(vels, dev_vels, size, cudaMemcpyDeviceToHost);
 
                 printf("%g\n", (double)i / (double)ITERATIONS);
 
                 for(int j = 0; j < N; j++)
-                fprintf(fp, "%d, %d, %g, %g, %g, %g\n", i, j, x[j], y[j], vx[j], vy[j]);
+                fprintf(fp, "%d, %d, %g, %g, %g, %g\n", i, j, positions[j].x, positions[j].y, vels[j].x, vels[j].y);
         }
 
         fclose(fp);
 
-        cudaFree(dev_x);
-        cudaFree(dev_y);
-        cudaFree(dev_m);
-        cudaFree(dev_vx);
-        cudaFree(dev_vy);
+        cudaFree(dev_positions);
+        cudaFree(dev_vels);
         
-        free(x); free(y); free(m);
-
-        //printf("Numbers:\n");
-        //for(int i = 0; i < N; i++) {
-        //        printf("%d: (%g, %g)\n", i, vx[i], vy[i]);
-        //}
-        
-        free(vx); free(vy);
+        free(positions); free(vels);
 
         return 0;
 }

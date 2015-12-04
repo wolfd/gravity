@@ -4,6 +4,8 @@ import pygame
 from pygame import gfxdraw
 import sys
 
+ITERATIONS = 8000
+PARTICLES = 384
 
 size = [800, 800]
 screen = pygame.display.set_mode(size)
@@ -25,18 +27,18 @@ y = locations.ix[:,3]
 xv = locations.ix[:,4]
 yv = locations.ix[:,5]
 
-scale = 10e3
+scale = 10e2
 size = [0, 0]
 def to_pygame(x, y):
     return (size[0] / 2 + x / scale, size[1] / 2 + y / scale)
 
 while True:
     #clock.tick(10)
-    for t in [u for u in xrange(30000) if u % 50 == 0]:
+    for t in [u for u in xrange(ITERATIONS)]: # if u % 50 == 0]:
         print str(t) 
         screen.fill(BLACK)
-        for l in range(512):
-            i = t * 512 + l
+        for l in range(PARTICLES):
+            i = t * PARTICLES + l
             #print (x[i]/scale,y[i]/scale)
             p = to_pygame(x[i], y[i])
             p_v = to_pygame(x[i] + xv[i], y[i] + yv[i])
