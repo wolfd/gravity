@@ -43,7 +43,9 @@ while True:
             #print (x[i]/scale,y[i]/scale)
             p = to_pygame(x[i], y[i])
             p_v = to_pygame(x[i] + xv[i], y[i] + yv[i])
-            pygame.draw.line(screen, GREEN, p, p_v, 1)
+            pygame.draw.line(screen, GREEN, p, p_v, 2)
+            if l == 3:
+                pygame.draw.line(screen, RED, p, p_v, 1)
 	#gfxdraw.pixel(surface, l.x, l.y, color)
    
         pygame.display.update() 
