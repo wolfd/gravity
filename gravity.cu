@@ -3,15 +3,15 @@
 // There are ways to get this data but I'm too lazy
 #define CUDA_CORES 384
 
-#define N 384 
+#define N 1000 
 //#define N 512 
 #define THREADS_PER_BLOCK 512 
 
-#define ITERATIONS 8000 
+#define ITERATIONS 8000
 
-//define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
-#define GRAVITATIONAL_CONSTANT 240300.0 // km^3 / (Yg * min^2)
-#define TIME_STEP 1.0 //
+#define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
+//#define GRAVITATIONAL_CONSTANT 240300.0 // km^3 / (Yg * min^2)
+#define TIME_STEP 3600.0 //
 // http://www.wolframalpha.com/input/?i=gravitational+constant+in+km%5E3%2F%28Yg+*+s%5E2%29
 
 void random_ints(int* a, int num) {
@@ -31,11 +31,36 @@ void random_doubles(double* a, int num, double multiplier) {
 void random_double4s(double4* a, int num, double m0, double m1, double m2, double m3) {
         int i;
         for(i = 0; i < num; i++) {
-                a[i].x = (double)rand() / (double)RAND_MAX * m0;
-                a[i].y = (double)rand() / (double)RAND_MAX * m1;
-                a[i].z = (double)rand() / (double)RAND_MAX * m2;
-                a[i].w = (double)rand() / (double)RAND_MAX * m3;
+                a[i].x = ((double)rand() / (double)RAND_MAX - 0.5) * m0;
+                a[i].y = ((double)rand() / (double)RAND_MAX - 0.5) * m1;
+                a[i].z = ((double)rand() / (double)RAND_MAX - 0.5) * m2;
+                a[i].w = ((double)rand() / (double)RAND_MAX) * m3;
         }
+}
+
+void load_initial_data(double4 *in_pos, double4 *in_vel) {
+        FILE *ifp;
+        char *mode = "r";
+
+        ifp = fopen("input.csv", mode);
+
+        double x, y, z, xv, yv, zv;
+
+        if(ifp == NULL) fprintf(stderr, "OH NO! No file!\n");
+
+        int i = 0;
+        while(fscanf(ifp, "%g, %g, %g, %g, %g, %g", &x, &y, &z, &xv, &yv, &zv)) {
+                in_pos[i].x = x;
+                in_pos[i].y = y;
+                in_pos[i].z = z;
+
+                in_vel[i].x = x;
+                in_vel[i].y = y;
+                in_vel[i].z = z;
+                
+                i++;
+        }
+        fclose(ifp);
 }
 
 __device__ double3 interaction(double4 body_a, double4 body_b, double3 accel) {
@@ -44,9 +69,9 @@ __device__ double3 interaction(double4 body_a, double4 body_b, double3 accel) {
         r.y = body_b.y - body_a.y;
         r.z = body_b.z - body_a.z;
  
-        double dist_sq = r.x * r.x + r.y * r.y + r.z * r.z;
+        double dist_sq = r.x * r.x + r.y * r.y + r.z * r.z + 4e6;
  
-        dist_sq += 1.0; // softening factor
+        //dist_sq += 4e6; // softening factor
  
         double inv_dist = rsqrt(dist_sq);
         double inv_dist_cube = inv_dist * inv_dist * inv_dist;
@@ -67,7 +92,7 @@ __device__ double3 tile_calculation(double4 body_a, double3 accel) {
         //double4 *shared_positions = SharedMemory();
 
 
-//#pragma unroll 128
+#pragma unroll 128
         for(i = 0; i < blockDim.x; i++) {
                 accel = interaction(body_a, shared_positions[i], accel);
         }
@@ -93,7 +118,7 @@ __device__ double4 calculate_accel(double4 *positions, int num_tiles) {
                 int idx = tile * blockDim.x + threadIdx.x;
                 shared_positions[threadIdx.x] = positions[idx];
                 __syncthreads();
-//#pragma unroll 128
+#pragma unroll 128
                 for(int counter = 0; counter < blockDim.x; counter++) {
                         accel = interaction(cur_body, shared_positions[counter], accel);
                 }
@@ -134,7 +159,9 @@ __global__ void integrate(double4 *positions, double4 *vels, int num_tiles) {
         vels[index] = velocity;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
+                
+
         int block_size = N;
 
         int num_blocks = (N + block_size-1) / block_size;
@@ -152,10 +179,15 @@ int main(void) {
         positions = (double4*)malloc(size);
         vels = (double4*)malloc(size);
 
+//        load_initial_data(positions, vels);
+
         int seed = time(NULL);
         srand(seed);
-        random_double4s(positions, N, 6e5, 6e5, 6e5, 11.6 * 2.0);
-        random_double4s(vels, N, 0.0, 0.0, 0.0, 0.0);
+        random_double4s(positions, N, 6e5, 6e5, 6e1, 11.6 * 2.0);
+        random_double4s(vels, N, 0.5e2, 0.5, 0.1, 0.0);
+
+        positions[0].w = 1.99e9;
+        positions[0].y = 1.47e8;
 
         cudaMemcpy(dev_positions, positions, size, cudaMemcpyHostToDevice);
         cudaMemcpy(dev_vels, vels, size, cudaMemcpyHostToDevice);
@@ -169,10 +201,10 @@ int main(void) {
                 cudaMemcpy(positions, dev_positions, size, cudaMemcpyDeviceToHost);
                 cudaMemcpy(vels, dev_vels, size, cudaMemcpyDeviceToHost);
 
-                printf("%g\n", (double)i / (double)ITERATIONS);
+                printf("%g\n", (double)i * 100.0 / (double)ITERATIONS);
 
                 for(int j = 0; j < N; j++)
-                fprintf(fp, "%d, %d, %g, %g, %g, %g\n", i, j, positions[j].x, positions[j].y, vels[j].x, vels[j].y);
+                fprintf(fp, "%d,%d,%g,%g,%g,%g,%g,%g\n", i, j, positions[j].x, positions[j].y, positions[j].z, vels[j].x, vels[j].y, vels[j].z);
         }
 
         fclose(fp);

@@ -5,7 +5,7 @@ from pygame import gfxdraw
 import sys
 
 ITERATIONS = 8000
-PARTICLES = 384
+PARTICLES = 1000 
 
 size = [800, 800]
 screen = pygame.display.set_mode(size)
@@ -24,17 +24,17 @@ locations = pd.read_csv('locations.csv')
 
 x = locations.ix[:,2]
 y = locations.ix[:,3]
-xv = locations.ix[:,4]
-yv = locations.ix[:,5]
+z = locations.ix[:,4]
+xv = locations.ix[:,5]
+yv = locations.ix[:,6]
+zv = locations.ix[:,7]
 
-scale = 10e2
-size = [0, 0]
+scale = 6e5
 def to_pygame(x, y):
     return (size[0] / 2 + x / scale, size[1] / 2 + y / scale)
 
 while True:
-    #clock.tick(10)
-    for t in [u for u in xrange(ITERATIONS)]: # if u % 50 == 0]:
+    for t in [u for u in xrange(ITERATIONS - 1) if u % 50 == 0]:
         print str(t) 
         screen.fill(BLACK)
         for l in range(PARTICLES):
