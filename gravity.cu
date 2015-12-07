@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
         cudaMemcpy(dev_vels, vels, size, cudaMemcpyHostToDevice);
 
 
-        FILE *fp = fopen("locations.csv", "w");
+        FILE *fp = fopen("output.csv", "w");
 
         for(int i = 0; i < ITERATIONS; i++) {
                 integrate<<<num_blocks, block_size, shared_mem_size>>>(dev_positions, dev_vels, num_tiles);

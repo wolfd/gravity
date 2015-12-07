@@ -19,7 +19,7 @@ color = pygame.Color.g
 
 clock = pygame.time.Clock()
 
-locations = pd.read_csv('locations.csv')
+locations = pd.read_csv('output.csv')
 #import pdb; pdb.set_trace()
 
 x = locations.ix[:,2]

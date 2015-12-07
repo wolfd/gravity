@@ -1,4 +1,4 @@
-*.csv
+output*.csv
 bin/grav
 
 # Byte-compiled / optimized / DLL files
