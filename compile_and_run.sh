@@ -1,6 +1,6 @@
 #!/bin/bash
 
-nvcc -arch sm_20 gravity.cu -o bin/grav &&
+nvcc -arch sm_20 gravity.cu -g -o bin/grav &&
     ./bin/grav &&
     ./render.py;
 

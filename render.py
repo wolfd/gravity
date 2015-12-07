@@ -4,8 +4,8 @@ import pygame
 from pygame import gfxdraw
 import sys
 
-ITERATIONS = 8000
-PARTICLES = 1000 
+ITERATIONS = 800000
+PARTICLES = 7 
 
 size = [800, 800]
 screen = pygame.display.set_mode(size)
@@ -20,7 +20,6 @@ color = pygame.Color.g
 clock = pygame.time.Clock()
 
 locations = pd.read_csv('output.csv')
-#import pdb; pdb.set_trace()
 
 x = locations.ix[:,2]
 y = locations.ix[:,3]
@@ -29,14 +28,16 @@ xv = locations.ix[:,5]
 yv = locations.ix[:,6]
 zv = locations.ix[:,7]
 
-scale = 6e5
+scale = 7e8 
+
 def to_pygame(x, y):
-    return (size[0] / 2 + x / scale, size[1] / 2 + y / scale)
+    return (size[0] / 2 + (x / scale) * size[0], size[1] / 2 + (y / scale) * size[0])
 
 while True:
     for t in [u for u in xrange(ITERATIONS - 1) if u % 50 == 0]:
+        #clock.tick(10)
         print str(t) 
-        screen.fill(BLACK)
+        #screen.fill(BLACK)
         for l in range(PARTICLES):
             i = t * PARTICLES + l
             #print (x[i]/scale,y[i]/scale)
