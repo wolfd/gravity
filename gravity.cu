@@ -3,11 +3,12 @@
 // There are ways to get this data but I'm too lazy
 #define CUDA_CORES 384
 
-#define N 7 
+
+#define N 1000 
 //#define N 512 
 #define THREADS_PER_BLOCK 512 
 
-#define ITERATIONS 800000
+#define ITERATIONS 8000
 
 #define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
 //#define GRAVITATIONAL_CONSTANT 240300.0 // km^3 / (Yg * min^2)
@@ -183,15 +184,15 @@ int main(int argc, char *argv[]) {
         positions = (double4*)malloc(size);
         vels = (double4*)malloc(size);
 
-        load_initial_data(positions, vels, num_particles);
 
-        //int seed = time(NULL);
-        //srand(seed);
-        //random_double4s(positions, N, 6e5, 6e5, 6e1, 11.6 * 2.0);
-        //random_double4s(vels, N, 0.5e2, 0.5, 0.1, 0.0);
+        int seed = time(NULL);
+        srand(seed);
+        random_double4s(positions, N, 6e8, 6e8, 6e3, 11.6 * 2.0);
+        random_double4s(vels, N, 0.5e2, 0.5e2, 0.1, 0.0);
 
         //positions[0].w = 1.99e9;
         //positions[0].y = 1.47e8;
+        load_initial_data(positions, vels, 7);
 
         cudaMemcpy(dev_positions, positions, size, cudaMemcpyHostToDevice);
         cudaMemcpy(dev_vels, vels, size, cudaMemcpyHostToDevice);
@@ -205,12 +206,12 @@ int main(int argc, char *argv[]) {
                 cudaMemcpy(positions, dev_positions, size, cudaMemcpyDeviceToHost);
                 cudaMemcpy(vels, dev_vels, size, cudaMemcpyDeviceToHost);
 
-                printf("%g\n", (double)i * 100.0 / (double)ITERATIONS);
-
-                for(int j = 0; j < N; j++)
-                fprintf(fp, "%d,%d,%g,%g,%g,%g,%g,%g\n", i, j, positions[j].x, positions[j].y, positions[j].z, vels[j].x, vels[j].y, vels[j].z);
+                if(i % 60 == 0) {
+                        printf("%.2f\n", (double)i * 100.0 / (double)ITERATIONS);
+                        for(int j = 0; j < N; j++)
+                        fprintf(fp, "%g,%g,%g,%g,%g,%g\n", positions[j].x, positions[j].y, positions[j].z, vels[j].x, vels[j].y, vels[j].z);
+                }
         }
-
         fclose(fp);
 
         cudaFree(dev_positions);
