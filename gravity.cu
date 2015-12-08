@@ -4,18 +4,18 @@
 // There are ways to get this data but I'm too lazy
 #define CUDA_CORES 384
 
-
 //#define N 7 
 #define N 606 
-#define THREADS_PER_BLOCK 512 
 
-#define ITERATIONS 8000000
+#define ITERATIONS 864000
 
+// http://www.wolframalpha.com/input/?i=gravitational+constant+in+km%5E3%2F%28Yg+*+s%5E2%29
 #define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
 //#define GRAVITATIONAL_CONSTANT 240300.0 // km^3 / (Yg * min^2)
-#define TIME_STEP 60.0 //
-//#define TIME_STEP 3600.0 //
-// http://www.wolframalpha.com/input/?i=gravitational+constant+in+km%5E3%2F%28Yg+*+s%5E2%29
+#define TIME_STEP 0.1 
+
+#define SAVE_STEP 50
+
 
 volatile sig_atomic_t kill_flag = 0; // if the program gets killed, flag for the main loop
 void set_kill_flag(int sig){ // can be called asynchronously
@@ -202,10 +202,10 @@ int main(int argc, char *argv[]) {
         vels = (double4*)malloc(size);
 
 
-        int seed = time(NULL);
-        srand(seed);
-        random_double4s(positions, N, 6e8, 6e8, 6e3, 11.6 * 2.0);
-        random_double4s(vels, N, 0.5e2, 0.5e2, 0.1, 0.0);
+        //int seed = time(NULL);
+        //srand(seed);
+        //random_double4s(positions, N, 6e8, 6e8, 6e3, 11.6 * 2.0);
+        //random_double4s(vels, N, 0.5e2, 0.5e2, 0.1, 0.0);
 
         load_initial_data(positions, vels, N);
 
@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
                 cudaMemcpy(positions, dev_positions, size, cudaMemcpyDeviceToHost);
                 cudaMemcpy(vels, dev_vels, size, cudaMemcpyDeviceToHost);
 
-                if(i % 60 == 0) {
+                if(i % SAVE_STEP == 0) {
                         printf("%.2f\n", (double)i * 100.0 / (double)ITERATIONS);
                         for(int j = 0; j < N; j++)
                         fprintf(fp, "%g,%g,%g,%g,%g,%g\n", positions[j].x, positions[j].y, positions[j].z, vels[j].x, vels[j].y, vels[j].z);
