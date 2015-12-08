@@ -1,4 +1,5 @@
 output*.csv
+recovered-input*.csv
 bin/grav
 
 # Byte-compiled / optimized / DLL files

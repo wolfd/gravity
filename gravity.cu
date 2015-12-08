@@ -1,20 +1,26 @@
 #include <stdio.h>
+#include <signal.h>
 
 // There are ways to get this data but I'm too lazy
 #define CUDA_CORES 384
 
 
-#define N 1000 
-//#define N 512 
+//#define N 7 
+#define N 606 
 #define THREADS_PER_BLOCK 512 
 
-#define ITERATIONS 8000
+#define ITERATIONS 8000000
 
 #define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
 //#define GRAVITATIONAL_CONSTANT 240300.0 // km^3 / (Yg * min^2)
 #define TIME_STEP 60.0 //
 //#define TIME_STEP 3600.0 //
 // http://www.wolframalpha.com/input/?i=gravitational+constant+in+km%5E3%2F%28Yg+*+s%5E2%29
+
+volatile sig_atomic_t kill_flag = 0; // if the program gets killed, flag for the main loop
+void set_kill_flag(int sig){ // can be called asynchronously
+          kill_flag = 1; // set flag
+}
 
 void random_ints(int* a, int num) {
         int i;
@@ -67,6 +73,17 @@ void load_initial_data(double4 *in_pos, double4 *in_vel, int num_particles) {
         }
         fclose(ifp);
 }
+
+void save_continue_csv(const char *filename, double4 *poss, double4 *vels) {
+        FILE *next_input = fopen(filename, "w");
+
+        for(int j = 0; j < N; j++)
+        fprintf(next_input, "%g,%g,%g,%g,%g,%g,%g\n", poss[j].w, poss[j].x, poss[j].y, poss[j].z, vels[j].x, vels[j].y, vels[j].z);
+
+        fclose(next_input);
+        printf("Saved.");
+}
+
 
 __device__ double3 interaction(double4 body_a, double4 body_b, double3 accel) {
         double3 r;
@@ -144,8 +161,6 @@ __global__ void integrate(double4 *positions, double4 *vels, int num_tiles, int 
 
         double4 position = positions[index];
 
-        //printf("what: %g, %g, %g, %g\n", position.x, position.y, position.z, position.w); 
-
         double4 accel = calculate_accel(positions, num_tiles, num_particles);
         
         double4 velocity = vels[index]; 
@@ -164,7 +179,9 @@ __global__ void integrate(double4 *positions, double4 *vels, int num_tiles, int 
         vels[index] = velocity;
 }
 
+
 int main(int argc, char *argv[]) {
+        signal(SIGINT, set_kill_flag);
         
         int num_particles = N;
         int block_size = num_particles;
@@ -190,9 +207,7 @@ int main(int argc, char *argv[]) {
         random_double4s(positions, N, 6e8, 6e8, 6e3, 11.6 * 2.0);
         random_double4s(vels, N, 0.5e2, 0.5e2, 0.1, 0.0);
 
-        //positions[0].w = 1.99e9;
-        //positions[0].y = 1.47e8;
-        load_initial_data(positions, vels, 7);
+        load_initial_data(positions, vels, N);
 
         cudaMemcpy(dev_positions, positions, size, cudaMemcpyHostToDevice);
         cudaMemcpy(dev_vels, vels, size, cudaMemcpyHostToDevice);
@@ -201,6 +216,7 @@ int main(int argc, char *argv[]) {
         FILE *fp = fopen("output.csv", "w");
 
         for(int i = 0; i < ITERATIONS; i++) {
+
                 integrate<<<num_blocks, block_size, shared_mem_size>>>(dev_positions, dev_vels, num_tiles, num_particles);
 
                 cudaMemcpy(positions, dev_positions, size, cudaMemcpyDeviceToHost);
@@ -211,8 +227,17 @@ int main(int argc, char *argv[]) {
                         for(int j = 0; j < N; j++)
                         fprintf(fp, "%g,%g,%g,%g,%g,%g\n", positions[j].x, positions[j].y, positions[j].z, vels[j].x, vels[j].y, vels[j].z);
                 }
+                if(kill_flag) {
+                        break;
+                }
         }
         fclose(fp);
+
+        if(kill_flag) {
+                save_continue_csv("recovered-input.csv", positions, vels);                    
+        } else {
+                save_continue_csv("next-input.csv", positions, vels);                    
+        }
 
         cudaFree(dev_positions);
         cudaFree(dev_vels);
