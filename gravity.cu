@@ -7,14 +7,14 @@
 //#define N 7 
 #define N 606 
 
-#define ITERATIONS 864000
+#define ITERATIONS 315360000 
 
 // http://www.wolframalpha.com/input/?i=gravitational+constant+in+km%5E3%2F%28Yg+*+s%5E2%29
 #define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
 //#define GRAVITATIONAL_CONSTANT 240300.0 // km^3 / (Yg * min^2)
 #define TIME_STEP 0.1 
 
-#define SAVE_STEP 50
+#define SAVE_STEP 100
 
 
 volatile sig_atomic_t kill_flag = 0; // if the program gets killed, flag for the main loop
@@ -91,7 +91,7 @@ __device__ double3 interaction(double4 body_a, double4 body_b, double3 accel) {
         r.y = body_b.y - body_a.y;
         r.z = body_b.z - body_a.z;
  
-        double dist_sq = r.x * r.x + r.y * r.y + r.z * r.z + 4e6;
+        double dist_sq = r.x * r.x + r.y * r.y + r.z * r.z + 4e3;
  
         //dist_sq += 4e6; // softening factor
  

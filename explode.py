@@ -18,7 +18,7 @@ vel = 6.453 # km / s
 
 # or alderaan
 radius_earth = 6367.0 # km
-first_timestep = radius_earth / escape_vel # seconds
+first_timestep = radius_earth / vel # seconds
 
 def random_vec():
     vec = [random.random() - 0.5, random.random() - 0.5, random.random() - 0.5]
@@ -28,7 +28,7 @@ def random_vec():
 for i in range(num_particles):
     mag = vel
     #import pdb; pdb.set_trace()
-    velocity = [mag * v for v in random_vec()]
+    velocity = [random.uniform(0.9 * mag, 1.1 * mag) * v for v in random_vec()]
     position = [v * first_timestep for v in velocity]
     particles[i, 0] = total_mass / num_particles
     particles[i, 1:4] = position
@@ -38,17 +38,27 @@ for i in range(num_particles):
 alderaan_index = 2
 orbits = pd.read_csv('orbits.csv', header=None)
 
+
 p_f = pd.DataFrame(particles)
 alderaan = orbits.ix[alderaan_index]
+orbits.drop(orbits.index[alderaan_index], inplace=True)
+# Shift Planets
+orbits[1] = orbits[1].map(lambda x: x - alderaan[1])
+orbits[2] = orbits[2].map(lambda y: y - alderaan[2])
+orbits[3] = orbits[3].map(lambda z: z - alderaan[3])
+# Velocities
+#orbits[4] = orbits[4].map(lambda x: x - alderaan[4])
+#orbits[5] = orbits[5].map(lambda y: y - alderaan[5])
+#orbits[6] = orbits[6].map(lambda z: z - alderaan[6])
+
 # Positions
-p_f[1] = p_f[1].map(lambda x: x + alderaan[1])
-p_f[2] = p_f[2].map(lambda y: y + alderaan[2])
-p_f[3] = p_f[3].map(lambda z: z + alderaan[3])
+#p_f[1] = p_f[1].map(lambda x: x + alderaan[1])
+#p_f[2] = p_f[2].map(lambda y: y + alderaan[2])
+#p_f[3] = p_f[3].map(lambda z: z + alderaan[3])
 # Velocities
 p_f[4] = p_f[4].map(lambda x: x + alderaan[4])
 p_f[5] = p_f[5].map(lambda y: y + alderaan[5])
 p_f[6] = p_f[6].map(lambda z: z + alderaan[6])
-orbits.drop(orbits.index[alderaan_index], inplace=True)
 orbits = orbits.append(p_f)
 
 orbits.to_csv('input.csv', index=False, header=False)
