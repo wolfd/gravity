@@ -5,10 +5,8 @@ import random
 
 total_mass = 5.9e3
 
-num_particles = 600
+num_particles = 1000 - 6
 
-num_ring = num_particles / 4
-num_other = num_particles - num_ring
 
 initial_pos = (0, 0, 0)
 
@@ -17,6 +15,7 @@ particles = np.zeros((num_particles, 7))
 vel = 6.453 # km / s
 vel = 6378.100 # km / s from movie
 vel = 11.2 # km / s more accurate
+vel = 9.126 # km /s new sam
 
 # or alderaan
 radius_earth = 6367.0 # km
@@ -31,7 +30,8 @@ for i in range(num_particles):
     mag = vel
     #import pdb; pdb.set_trace()
     velocity = [random.uniform(0.9 * mag, 1.1 * mag) * v for v in random_vec()]
-    position = [v * first_timestep for v in velocity]
+    random_radius = 1 #random.random()
+    position = [v * first_timestep * random_radius for v in velocity]
     particles[i, 0] = total_mass / num_particles
     particles[i, 1:4] = position
     particles[i, 4:7] = velocity

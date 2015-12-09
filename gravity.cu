@@ -5,7 +5,7 @@
 #define CUDA_CORES 384
 
 //#define N 7 
-#define N 606 
+#define N 1000 
 
 #define ITERATIONS 315360000 
 

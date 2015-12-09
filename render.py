@@ -34,8 +34,8 @@ parser.add_option("-s", "--skip", dest="skip",
 
 PARTICLES = options.num_particles
 
-reader = pd.read_csv(options.csv_name, chunksize=PARTICLES, header=None)#iterator=True,
 
+reader = pd.read_csv(options.csv_name, chunksize=PARTICLES, header=None)#iterator=True,
 scale = 1e-3
 scale = 16.0 
 
