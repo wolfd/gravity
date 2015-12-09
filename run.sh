@@ -2,5 +2,5 @@
 
 nvcc -arch sm_20 gravity.cu -g -o bin/grav &&
     ./bin/grav &&
-    ./render.py;
+    ./render.py -n 606;
 

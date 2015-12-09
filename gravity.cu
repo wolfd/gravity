@@ -16,6 +16,7 @@
 
 #define SAVE_STEP 50
 
+#define SMOOTHING_SQ 4e3
 
 volatile sig_atomic_t kill_flag = 0; // if the program gets killed, flag for the main loop
 void set_kill_flag(int sig){ // can be called asynchronously
@@ -91,7 +92,7 @@ __device__ double3 interaction(double4 body_a, double4 body_b, double3 accel) {
         r.y = body_b.y - body_a.y;
         r.z = body_b.z - body_a.z;
  
-        double dist_sq = r.x * r.x + r.y * r.y + r.z * r.z + 4e6;
+        double dist_sq = r.x * r.x + r.y * r.y + r.z * r.z + SMOOTHING_SQ;
  
         //dist_sq += 4e6; // softening factor
  
