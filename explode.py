@@ -15,6 +15,8 @@ initial_pos = (0, 0, 0)
 particles = np.zeros((num_particles, 7))
 
 vel = 6.453 # km / s
+vel = 6378.100 # km / s from movie
+vel = 11.2 # km / s more accurate
 
 # or alderaan
 radius_earth = 6367.0 # km
