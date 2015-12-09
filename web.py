@@ -98,12 +98,13 @@ def main():
     global reader, chunk
     chunk += 1
     #import pdb; pdb.set_trace()
-    d = reader.get_chunk(PARTICLES * 100)
+    chunk_size = 1000
+    d = reader.get_chunk(PARTICLES * chunk_size)
     d.columns = ['x', 'y', 'z', 'xv', 'yv', 'zv']
 
     things = d.as_matrix()
     print(things.shape)
-    things.shape = (100, PARTICLES, 6)
+    things.shape = (chunk_size, PARTICLES, 6)
     
     return json.dumps(things.tolist())
 

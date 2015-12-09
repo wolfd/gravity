@@ -2,13 +2,24 @@
 import numpy as np
 import pandas as pd
 import random
+import math
+from optparse import OptionParser
 
-total_mass = 5.9e3
+parser = OptionParser()
+parser.add_option("-v", "--vel", dest="init_velocity",
+                  help="initial velocity km/s", type="float", 
+                  default=9.126)
+parser.add_option("-n", "--num", dest="num_particles",
+                  help="particles in sim", type="int", default=(1000-6))
 
-num_particles = 1000 - 6
+(options, args) = parser.parse_args()
 
+total_mass = 5.97e3
 
-initial_pos = (0, 0, 0)
+num_particles = options.num_particles 
+
+G = 66.7 # km^3 / (Yg * s^2)
+
 
 particles = np.zeros((num_particles, 7))
 
@@ -17,9 +28,13 @@ vel = 6378.100 # km / s from movie
 vel = 11.2 # km / s more accurate
 vel = 9.126 # km /s new sam
 
+vel = options.init_velocity
+
 # or alderaan
 radius_earth = 6367.0 # km
-first_timestep = radius_earth / vel # seconds
+
+def what_is_vel(r):
+    return math.sqrt((6 * G * total_mass) / (5 * r))
 
 def random_vec():
     vec = [random.random() - 0.5, random.random() - 0.5, random.random() - 0.5]
@@ -27,11 +42,12 @@ def random_vec():
     return [v / mag for v in vec]
 
 for i in range(num_particles):
-    mag = vel
     #import pdb; pdb.set_trace()
-    velocity = [random.uniform(0.9 * mag, 1.1 * mag) * v for v in random_vec()]
-    random_radius = 1 #random.random()
-    position = [v * first_timestep * random_radius for v in velocity]
+    random_radius = random.random() * radius_earth
+    unit_vec = random_vec()
+    position = [vc * random_radius for vc in unit_vec] 
+    velocity = [what_is_vel(random_radius) * vc for vc in unit_vec]
+
     particles[i, 0] = total_mass / num_particles
     particles[i, 1:4] = position
     particles[i, 4:7] = velocity
@@ -39,7 +55,6 @@ for i in range(num_particles):
 
 alderaan_index = 2
 orbits = pd.read_csv('orbits.csv', header=None)
-
 
 p_f = pd.DataFrame(particles)
 alderaan = orbits.ix[alderaan_index]
