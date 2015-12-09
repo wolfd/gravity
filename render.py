@@ -11,10 +11,12 @@ BLACK = (  0,   0,   0)
 WHITE = (255, 255, 255)
 BLUE =  (  0,   0, 255)
 GREEN = (  0, 255,   0)
+YELLOW = (150, 150, 0)
 RED =   (255,   0,   0)
 background_color = BLACK
-planet_color = GREEN
-sun_color = RED
+particle_color = GREEN
+planet_color = RED 
+sun_color = YELLOW 
 
 clock = pygame.time.Clock()
 
@@ -35,10 +37,11 @@ PARTICLES = options.num_particles
 reader = pd.read_csv(options.csv_name, chunksize=PARTICLES, header=None)#iterator=True,
 
 scale = 1e-3
+scale = 16.0 
 
 sun_index = 0
 
-focus_planet = 0
+focus_planet = 2 
 
 draw_background = True
 
@@ -54,7 +57,7 @@ def get_particle(df, index):
 def subtract_particles(a, b):
     return [a_i - b_i for a_i, b_i in zip(a, b)]
 
-def draw_particle(p, color=planet_color):
+def draw_particle(p, color=particle_color):
     a = to_pygame(p[0], p[1])#, p[3], p[4]) 
     b = to_pygame(p[0], p[1])#, p[3], p[4]) 
 
@@ -68,6 +71,7 @@ for d in reader:
         continue
     d.columns = ['x', 'y', 'z', 'xv', 'yv', 'zv']
     ref = get_particle(d, focus_planet)
+    pygame.display.set_caption(str(iteration))
 
     if draw_background:
         screen.fill(background_color)
@@ -81,6 +85,8 @@ for d in reader:
         rel = subtract_particles(cur, focus)
         if i == sun_index:
             draw_particle(rel, sun_color)
+        elif i in range(6):
+            draw_particle(rel, planet_color)
         else:
             draw_particle(rel)
 
