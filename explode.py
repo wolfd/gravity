@@ -14,7 +14,7 @@ initial_pos = (0, 0, 0)
 
 particles = np.zeros((num_particles, 7))
 
-escape_vel = 11.2 # km / s
+vel = 6.453 # km / s
 
 # or alderaan
 radius_earth = 6367.0 # km
@@ -26,7 +26,7 @@ def random_vec():
     return [v / mag for v in vec]
 
 for i in range(num_particles):
-    mag = random.uniform(escape_vel, 1.3 * escape_vel)
+    mag = vel
     #import pdb; pdb.set_trace()
     velocity = [mag * v for v in random_vec()]
     position = [v * first_timestep for v in velocity]
