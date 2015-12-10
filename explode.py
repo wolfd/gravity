@@ -6,9 +6,9 @@ import math
 from optparse import OptionParser
 
 parser = OptionParser()
-parser.add_option("-v", "--vel", dest="init_velocity",
-                  help="initial velocity km/s", type="float", 
-                  default=9.126)
+parser.add_option("-m", "--multiplier", dest="sweep_multiplier",
+                  help="what to multiply by", type="float", 
+                  default=1.0)
 parser.add_option("-n", "--num", dest="num_particles",
                   help="particles in sim", type="int", default=(1000-6))
 
@@ -23,12 +23,11 @@ G = 66.7 # km^3 / (Yg * s^2)
 
 particles = np.zeros((num_particles, 7))
 
-vel = 6.453 # km / s
-vel = 6378.100 # km / s from movie
-vel = 11.2 # km / s more accurate
-vel = 9.126 # km /s new sam
+#vel = 6.453 # km / s
+#vel = 6378.100 # km / s from movie
+#vel = 11.2 # km / s more accurate
+#vel = 9.126 # km /s new sam
 
-vel = options.init_velocity
 
 # or alderaan
 radius_earth = 6367.0 # km
@@ -46,7 +45,7 @@ for i in range(num_particles):
     random_radius = random.random() * radius_earth
     unit_vec = random_vec()
     position = [vc * random_radius for vc in unit_vec] 
-    velocity = [what_is_vel(random_radius) * vc for vc in unit_vec]
+    velocity = [what_is_vel(random_radius) * vc * options.sweep_multiplier for vc in unit_vec]
 
     particles[i, 0] = total_mass / num_particles
     particles[i, 1:4] = position
