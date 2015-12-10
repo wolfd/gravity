@@ -20,6 +20,9 @@ num_particles = options.num_particles
 
 G = 66.7 # km^3 / (Yg * s^2)
 
+mass_unit = 1e24 / 1e3 # Yg to Kg
+length_unit = 1e3 # Km to m
+
 
 particles = np.zeros((num_particles, 7))
 
@@ -40,17 +43,24 @@ def random_vec():
     mag = np.linalg.norm(vec)
     return [v / mag for v in vec]
 
+total_ke = 0
+
+def ke(m, v):
+    return 0.5 * (m * mass_unit) * ((v * length_unit) ** 2)
+
 for i in range(num_particles):
     #import pdb; pdb.set_trace()
+    particle_mass = total_mass / num_particles
     random_radius = random.random() * radius_earth
     unit_vec = random_vec()
     position = [vc * random_radius for vc in unit_vec] 
-    velocity = [what_is_vel(random_radius) * vc * options.sweep_multiplier for vc in unit_vec]
+    cur_vel = what_is_vel(random_radius)
+    total_ke += ke(particle_mass, cur_vel)
+    velocity = [cur_vel * vc * options.sweep_multiplier for vc in unit_vec]
 
-    particles[i, 0] = total_mass / num_particles
+    particles[i, 0] = particle_mass 
     particles[i, 1:4] = position
     particles[i, 4:7] = velocity
-
 
 alderaan_index = 2
 orbits = pd.read_csv('orbits.csv', header=None)
@@ -78,6 +88,11 @@ p_f[6] = p_f[6].map(lambda z: z + alderaan[6])
 orbits = orbits.append(p_f)
 
 orbits.to_csv('input.csv', index=False, header=False)
+
+with open("summary-{0}.txt".format(options.sweep_multiplier), 'w') as summary:
+    summary.write("multiplier: {0}\n".format(options.sweep_multiplier))
+    summary.write("ke: {0} J\n".format(total_ke))
+
 
 print orbits.shape
 
