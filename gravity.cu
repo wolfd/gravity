@@ -7,7 +7,7 @@
 //#define N 7 
 #define N 1000 
 
-#define ITERATIONS 315360000 
+#define ITERATIONS 864000 
 
 // http://www.wolframalpha.com/input/?i=gravitational+constant+in+km%5E3%2F%28Yg+*+s%5E2%29
 #define GRAVITATIONAL_CONSTANT 66.7 // km^3 / (Yg * s^2)
