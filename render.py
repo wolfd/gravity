@@ -29,6 +29,8 @@ parser.add_option("-n", "--num", dest="num_particles",
 parser.add_option("-s", "--skip", dest="skip",
                   help="iterations to skip", type="int",
                   default=1)
+parser.add_option("-i", "--save-image", dest="save",
+                  default=None)
 
 (options, args) = parser.parse_args()
 
@@ -38,12 +40,27 @@ PARTICLES = options.num_particles
 reader = pd.read_csv(options.csv_name, chunksize=PARTICLES, header=None)#iterator=True,
 scale = 1e-3
 scale = 16.0 
+scale = 0.0009765625
+scale = 2.0
 
 sun_index = 0
 
-focus_planet = 2 
+focus_planet = 2
+#focus_planet = 0
+offset = (-363300, 0)
+#offset = (0, 0)
 
+#draw_background = False if options.save else True
 draw_background = True
+
+def save_it(pend=""):
+    if options.save != None:
+        from StringIO import StringIO
+        from PIL import Image
+        data = pygame.image.tostring(screen, 'RGBA')
+        img = Image.frombytes('RGBA', (800, 800), data)
+        with open(options.save + pend + ".png", 'wb') as f:
+            img.save(f, 'PNG')
 
 def to_pygame(x, y):
     scale_screen = scale / size[0]
@@ -83,6 +100,8 @@ for d in reader:
         cur = get_particle(d, i)
 
         rel = subtract_particles(cur, focus)
+        rel[0] = rel[0] + offset[0]
+        rel[1] = rel[1] + offset[1]
         if i == sun_index:
             draw_particle(rel, sun_color)
         elif i in range(6):
@@ -91,6 +110,9 @@ for d in reader:
             draw_particle(rel)
 
     pygame.display.update() 
+    if iteration % 12 == 1:
+        save_it("-2min-" + str(iteration / 12))
+        #break
 
     for event in pygame.event.get():
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -112,11 +134,5 @@ for d in reader:
         elif event.type == pygame.QUIT:
              pygame.quit(); sys.exit();
 
-save_image = False
-if save_image:
-    from StringIO import StringIO
-    from PIL import Image
-    data = pygame.image.tostring(screen, 'RGBA')
-    img = Image.frombytes('RGBA', (800, 800), data)
-    zdata = StringIO()
-    img.save(zdata, 'PNG')
+
+save_it()
